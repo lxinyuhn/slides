@@ -13,12 +13,45 @@ export default function Kitties (props) {
   const [kitties, setKitties] = useState([])
   const [status, setStatus] = useState('')
 
+  const [dna, setDna] = useState([])
+  const [owner, setOwner] = useState([])
+
   const fetchKitties = () => {
     // TODO: 在这里调用 `api.query.kittiesModule.*` 函数去取得猫咪的信息。
     // 你需要取得：
     //   - 共有多少只猫咪
     //   - 每只猫咪的主人是谁
     //   - 每只猫咪的 DNA 是什么，用来组合出它的形态
+    console.log("fetchKitties:")
+    let unsubscribe
+    api.query.kittiesModule.kittiesCount(newValue => {
+
+      if (newValue.isNone) {
+        console.log("kitties: None")
+      } else {
+        const count = newValue.unwrap().toNumber();
+        console.log("kitties count:", newValue, count);        
+        const range = []
+        for (let i=0; i<count; i++){
+          range.push(i)
+        }
+        console.log("range:", range)
+        let syncDna, syncOwner = false
+
+        const queryDetail = async () =>{ 
+          const unsub = await api.query.kittiesModule.kitties.multi(range, (dna) => {
+            setDna(dna)
+
+          });   
+          const unsub2 = await api.query.kittiesModule.owner.multi(range, (owner) => {
+            setOwner(owner)
+          });         
+        }
+        queryDetail()
+      }
+    }).catch(console.error)
+
+    return () => unsubscribe && unsubscribe()
   }
 
   const populateKitties = () => {
@@ -31,12 +64,24 @@ export default function Kitties (props) {
     //  }, { id: ..., dna: ..., owner: ... }]
     //  ```
     // 这个 kitties 会传入 <KittyCards/> 然后对每只猫咪进行处理
-    const kitties = []
+    console.log("populateKitties:", dna.length, owner.length)
+    if (dna.length === 0 || owner.length === 0 || dna.length != owner.length){
+      return
+    }
+    const kitties = [dna.length]
+    for (let i=0; i<dna.length; i++){
+      kitties[i]={
+        id: i,
+        dna: dna[i].unwrap(),
+        owner: String(owner[i].unwrap())
+      }
+    }
+    // const kitties = []
     setKitties(kitties)
   }
 
   useEffect(fetchKitties, [api, keyring])
-  useEffect(populateKitties, [])
+  useEffect(populateKitties, [owner, dna])
 
   return <Grid.Column width={16}>
     <h1>小毛孩</h1>
